@@ -1,0 +1,24 @@
+[package]
+name = "access_token"
+version = "0.1.0"
+authors = ["Nishanth Shanmugham <nishanths@utexas.edu>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "access_token"
+path = "src/bin.rs"
+
+[lib]
+name = "access_token"
+path = "src/lib.rs"
+
+[dependencies]
+getopts = "0.2"
+log = "0.4"
+simplelog = "0.8"
+anyhow = "1.0"
+reqwest = { version = "0.10", features = ["blocking", "json"] }
+cookie = "0.14"
+serde = { version = "1.0", features = ["derive"] }
