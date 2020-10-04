@@ -29,10 +29,9 @@ pub async fn fetch_token(sp_dc: &str, sp_key: &str) -> Result<TokenResponse, Err
             if r.status() != 200 {
                 return Err(anyhow!("bad response status: {}", r.status()));
             }
-            let tok = r.body_json::<TokenResponse>().await?;
-            Ok(tok)
+            Ok(r.body_json::<TokenResponse>().await?)
         }
-        Err(e) => return Err(anyhow!(e)),
+        Err(e) => Err(anyhow!(e)),
     }
 }
 
