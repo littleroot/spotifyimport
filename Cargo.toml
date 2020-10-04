@@ -21,3 +21,5 @@ cookie = "0.14"
 serde = { version = "1.0", features = ["derive"] }
 reqwest = { version="0.10", features = ["json"] }
 tokio = { version="0.2", features = ["macros"] }
+log = "0.4"
+logosaurus = "0.3"
