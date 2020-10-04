@@ -1,6 +1,6 @@
-use access_token;
 use anyhow::*;
 use reqwest::Client;
+use spotifyimport::access_token;
 use std::env;
 use std::process;
 
@@ -14,16 +14,16 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 
     let c = Client::new();
-    let tok = access_token::fetch_token(c, &args[1], &args[2]).await?;
+    let tok = access_token::fetch(c, &args[1], &args[2]).await?;
     println!("{}", tok.access_token);
     Ok(())
 }
 
 const INSTRUCTIONS: &str = r"1. open a new incognito window in a browser at: https://accounts.spotify.com/en/login?continue=https:%2F%2Fopen.spotify.com%2F
-2. open Developer Tools in your browser
+2. open Developer Tools in your browser and select the 'Application' tab
 3. login to Spotify
-4. search/filter for `get_access_token` in Developer Tools under Network
-5. under cookies for the request save the values for sp_dc and sp_key
+4. search/filter for `sp_dc` under Cookies > https://open.spotify.com
+4. repeat step 4 for `sp_key`
 6. close the window without logging out";
 
 fn print_help(prog: &str) {

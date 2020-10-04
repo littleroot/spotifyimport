@@ -3,17 +3,12 @@ use cookie::Cookie;
 use reqwest;
 use serde::Deserialize;
 
-const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) \
+pub async fn fetch(c: reqwest::Client, sp_dc: &str, sp_key: &str) -> Result<TokenResponse, Error> {
+    const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) \
 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36";
+    const URL: &str =
+        "https://open.spotify.com/get_access_token?reason=transport&productType=web_player";
 
-const URL: &str =
-    "https://open.spotify.com/get_access_token?reason=transport&productType=web_player";
-
-pub async fn fetch_token(
-    c: reqwest::Client,
-    sp_dc: &str,
-    sp_key: &str,
-) -> Result<TokenResponse, Error> {
     let cookies = vec![Cookie::new("sp_dc", sp_dc), Cookie::new("sp_key", sp_key)];
     let cookie_header = cookies
         .iter()
