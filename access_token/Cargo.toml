@@ -17,6 +17,7 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = "1.0"
 cookie = "0.14"
-surf = "1.0.3"
 serde = { version = "1.0", features = ["derive"] }
-async-std = { version = "1.6.5", features = ["attributes"] }
+reqwest = { version="0.10", features = ["json"] }
+tokio = { version="0.2", features = ["macros"] }
+

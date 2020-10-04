@@ -1,9 +1,10 @@
 use access_token;
 use anyhow::*;
+use reqwest::Client;
 use std::env;
 use std::process;
 
-#[async_std::main]
+#[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let args = env::args().collect::<Vec<String>>();
 
@@ -12,7 +13,8 @@ async fn main() -> Result<(), anyhow::Error> {
         process::exit(2);
     }
 
-    let tok = access_token::fetch_token(&args[1], &args[2]).await?;
+    let c = Client::new();
+    let tok = access_token::fetch_token(c, &args[1], &args[2]).await?;
     println!("{}", tok.access_token);
     Ok(())
 }
