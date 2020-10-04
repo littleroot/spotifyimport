@@ -3,30 +3,29 @@ use anyhow::*;
 use std::env;
 use std::process;
 
-fn main() -> Result<(), anyhow::Error> {
-    let args = env::args().skip(1).collect::<Vec<String>>();
+#[async_std::main]
+async fn main() -> Result<(), anyhow::Error> {
+    let args = env::args().collect::<Vec<String>>();
 
-    if args.len() != 2 {
-        print_help();
+    if args.len() != 3 {
+        print_help(&args[0]);
         process::exit(2);
     }
 
-    let tok = access_token::fetch_token(&args[0], &args[1])?;
+    let tok = access_token::fetch_token(&args[1], &args[2]).await?;
     println!("{}", tok.access_token);
-
     Ok(())
 }
 
-const INSTRUCTIONS: &str = r"1. Open a new Incognito window in a browser at:
-   https://accounts.spotify.com/en/login?continue=https:%2F%2Fopen.spotify.com%2F
-2. Open Developer Tools in your browser
-3. Login to Spotify.
-4. Search/Filter for get_access_token in Developer tools under Network.
-5. Under cookies for the request save the values for sp_dc and sp_key.
-6. Close the window without logging out";
+const INSTRUCTIONS: &str = r"1. open a new incognito window in a browser at: https://accounts.spotify.com/en/login?continue=https:%2F%2Fopen.spotify.com%2F
+2. open Developer Tools in your browser
+3. login to Spotify
+4. search/filter for `get_access_token` in Developer Tools under Network
+5. under cookies for the request save the values for sp_dc and sp_key
+6. close the window without logging out";
 
-fn print_help() {
-    eprint!("usage: accesstoken [SP_DC] [SP_KEY]\n\n");
-    eprint!("To obtain SP_DC and SP_KEY follow these instructions:\n");
+fn print_help(prog: &str) {
+    eprint!("usage: {} <SP_DC> <SP_KEY>\n\n", prog);
+    eprint!("To obtain SP_DC and SP_KEY:\n");
     eprint!("{}\n", INSTRUCTIONS);
 }
