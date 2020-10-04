@@ -8,7 +8,7 @@ edition = "2018"
 
 [[bin]]
 name = "access_token"
-path = "src/bin.rs"
+path = "src/main.rs"
 
 [lib]
 name = "access_token"
