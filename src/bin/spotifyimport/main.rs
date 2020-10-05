@@ -8,7 +8,7 @@ use reqwest::Client as HttpClient;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use spmc;
-use spotifyimport::access_token::{self, TokenResponse};
+use spotifyimport::access_token::{self, TokenResponse, SP_DC_INSTRUCTIONS};
 use std::env;
 use std::fmt;
 use std::fs::File;
@@ -39,8 +39,14 @@ const N_WORKERS: u32 = 16;
 
 fn print_help() {
     eprintln!(
-        "usage: {} [--mutate] <sp_dc> <sp_key>",
-        env::args().nth(0).unwrap()
+        r"usage: {} [--mutate] <sp_dc> <sp_key>
+
+Standard input should be JSON from the https://scrobbl.es/api/v1/scrobbled API endpoint.
+
+To obtain sp_dc and sp_key:
+{}",
+        env::args().nth(0).unwrap(),
+        SP_DC_INSTRUCTIONS,
     );
 }
 
