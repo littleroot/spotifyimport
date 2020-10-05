@@ -32,12 +32,15 @@ async fn main() {
 const N_WORKERS: u32 = 16;
 
 fn print_help() {
-    eprintln!("usage: {} <sp_dc> <sp_key>", env::args().nth(0).unwrap());
+    eprintln!(
+        "usage: {} [flags] <sp_dc> <sp_key>",
+        env::args().nth(0).unwrap()
+    );
 }
 
-enum FoundStatus {
-    Found,
-    NotFound,
+enum AddStatus {
+    Added,
+    Skipped,
 }
 
 async fn run() -> Result<(), Error> {
@@ -57,6 +60,8 @@ async fn run() -> Result<(), Error> {
         }
     };
 
+    let dry_run = true;
+
     let http_client = HttpClient::new();
 
     // NOTE: the expiry seems to be 1 hour, which should suffice for our purposes.
@@ -75,8 +80,8 @@ async fn run() -> Result<(), Error> {
     let mut handles = Vec::new();
 
     // found counts
-    let (found_tx, found_rx) = mpsc::channel::<FoundStatus>();
-    let mut found = 0;
+    let (added_tx, added_rx) = mpsc::channel::<AddStatus>();
+    let mut added = 0;
     let total = s.total;
 
     // send work along channel
@@ -89,22 +94,29 @@ async fn run() -> Result<(), Error> {
     // consume work from channel
     for _ in 0..N_WORKERS {
         let rx = rx.clone();
-        let found_tx = found_tx.clone();
+        let added_tx = added_tx.clone();
         let http_client = http_client.clone();
         let token = access_token.clone();
 
         handles.push(tokio::spawn(async move {
             loop {
-                let http_client = http_client.clone();
                 match rx.recv() {
-                    Ok(song) => match search_spotify_track(http_client, &token, &song).await {
-                        Ok(_) => {
-                            info!("adding {}", song);
-                            found_tx.send(FoundStatus::Found).unwrap();
+                    Ok(song) => match search_spotify_track(&http_client, &token, &song).await {
+                        Ok(id) => {
+                            if !dry_run {
+                                if let Err(e) =
+                                    add_spotify_liked_track(&http_client, &token, &id).await
+                                {
+                                    error!("add track: {}; skipped {}", e, song);
+                                    continue;
+                                }
+                            }
+                            added_tx.send(AddStatus::Added).unwrap();
+                            info!("added {} {}", song, id);
                         }
                         Err(e) => {
-                            error!("{}; skipping {}", e, song);
-                            found_tx.send(FoundStatus::NotFound).unwrap();
+                            added_tx.send(AddStatus::Skipped).unwrap();
+                            error!("search track: {}; skipped {}", e, song);
                         }
                     },
                     Err(_) => break,
@@ -113,36 +125,32 @@ async fn run() -> Result<(), Error> {
         }));
     }
 
+    drop(added_tx);
+
     for handle in handles {
         handle.await.unwrap();
     }
 
-    drop(found_tx);
-
     loop {
-        match found_rx.recv() {
-            Ok(FoundStatus::Found) => {
-                found += 1;
+        match added_rx.recv() {
+            Ok(AddStatus::Added) => {
+                added += 1;
             }
             Ok(_) => {}
             Err(_) => break,
         }
     }
 
-    info!("total songs: {}, found: {}", total, found);
+    info!("total songs: {}, added: {}", total, added);
     Ok(())
 }
 
-async fn search_spotify_track(
-    c: HttpClient,
-    token: &str,
-    song: &Song,
-) -> Result<SpotifyUri, Error> {
-    const URL: &str = "https://api.spotify.com/v1/search";
+async fn search_spotify_track(c: &HttpClient, token: &str, song: &Song) -> Result<String, Error> {
+    let url = "https://api.spotify.com/v1/search";
     let q = search_query(&song.title, &song.artist_name, &song.album_title);
 
     let rsp = c
-        .get(URL)
+        .get(url)
         .header("authorization", format!("Bearer {}", token))
         .query(&[("q", &q[..]), ("type", "track"), ("limit", "1")])
         .send()
@@ -158,7 +166,24 @@ async fn search_spotify_track(
         bail!("found zero tracks");
     }
 
-    Ok(rsp.tracks.items[0].uri.clone())
+    Ok(rsp.tracks.items[0].id.clone())
+}
+
+async fn add_spotify_liked_track(c: &HttpClient, token: &str, id: &str) -> Result<(), Error> {
+    let url = "https://api.spotify.com/v1/me/tracks";
+    let rsp = c
+        .put(url)
+        .header("authorization", format!("Bearer {}", token))
+        .query(&["ids", id])
+        .send()
+        .await
+        .context("build and execute request")?;
+
+    if rsp.status() != 200 {
+        bail!("bad status code: {}", rsp.status());
+    }
+
+    Ok(())
 }
 
 // Apple Music uses these suffixes, but Spotify doesn't.
@@ -212,6 +237,7 @@ struct Tracks {
 
 #[derive(Debug, Deserialize)]
 struct Item {
+    id: String,
     uri: SpotifyUri,
 }
 
