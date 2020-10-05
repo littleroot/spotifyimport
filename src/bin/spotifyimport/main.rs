@@ -94,10 +94,9 @@ async fn run() -> Result<(), Error> {
     let http_client = HttpClient::new();
 
     // NOTE: the expiry seems to be 1 hour, which should suffice for our purposes.
-    let TokenResponse { access_token, .. } =
-        access_token::fetch(http_client.clone(), &sp_dc, &sp_key)
-            .await
-            .context("fetch access token")?;
+    let TokenResponse { access_token, .. } = access_token::fetch(&http_client, &sp_dc, &sp_key)
+        .await
+        .context("fetch access token")?;
 
     // read scrobbled songs
     let r = BufReader::new(io::stdin());

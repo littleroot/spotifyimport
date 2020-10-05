@@ -34,7 +34,7 @@ pub const SP_DC_INSTRUCTIONS: &str = r"1. open a new incognito window in a brows
 4. repeat step 4 for `sp_key`
 6. close the window without logging out";
 
-pub async fn fetch(c: reqwest::Client, sp_dc: &str, sp_key: &str) -> Result<TokenResponse, Error> {
+pub async fn fetch(c: &reqwest::Client, sp_dc: &str, sp_key: &str) -> Result<TokenResponse, Error> {
     const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) \
 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36";
     const URL: &str =

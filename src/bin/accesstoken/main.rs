@@ -14,7 +14,7 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 
     let c = Client::new();
-    let tok = access_token::fetch(c, &args[1], &args[2]).await?;
+    let tok = access_token::fetch(&c, &args[1], &args[2]).await?;
     println!("{}", tok.access_token);
     Ok(())
 }
