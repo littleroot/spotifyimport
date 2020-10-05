@@ -13,7 +13,7 @@ use std::env;
 use std::fmt;
 use std::fs::File;
 use std::io;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::process;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -205,7 +205,8 @@ async fn run() -> Result<(), Error> {
         );
         let f = File::create(failure_filename).context("create output file")?;
         let failed_vec = Arc::try_unwrap(failed_songs).unwrap().into_inner().unwrap();
-        serde_json::to_writer_pretty(f, &failed_vec).context("write failed songs")?;
+        serde_json::to_writer_pretty(BufWriter::new(f), &failed_vec)
+            .context("write failed songs")?;
     } else {
         info!("total songs: {}, added: {}", total, added);
     }
