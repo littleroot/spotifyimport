@@ -36,15 +36,18 @@ async fn run() -> Result<(), Error> {
 
     let http_client = HttpClient::new();
 
+    // work channel
     let (mut tx, rx) = spmc::channel::<Song>();
     let mut handles = Vec::new();
 
+    // send work along channel
     handles.push(tokio::spawn(async move {
         for song in songs {
             tx.send(song).unwrap();
         }
     }));
 
+    // consume work from channel
     for _ in 0..N_WORKERS {
         let rx = rx.clone();
         let http_client = http_client.clone();
@@ -73,12 +76,7 @@ async fn run() -> Result<(), Error> {
 
 async fn search_spotify_track(c: HttpClient, song: &Song) -> Result<SpotifyUri, Error> {
     const URL: &str = "https://api.spotify.com/v1/search";
-    let q = SearchQuery {
-        track: song.title.clone(),
-        artist: song.artist_name.clone(),
-        album: song.album_title.clone(),
-    }
-    .encode();
+    let q = search_query(&song.title, &song.artist_name, &song.album_title);
 
     let req = c
         .get(URL)
@@ -99,26 +97,18 @@ async fn search_spotify_track(c: HttpClient, song: &Song) -> Result<SpotifyUri, 
     Ok(rsp.tracks.items[0].uri.clone())
 }
 
-struct SearchQuery {
-    track: String,
-    artist: String,
-    album: String,
-}
-
-impl SearchQuery {
-    fn encode(&self) -> String {
-        let mut buf = String::new();
-        if !self.track.is_empty() {
-            buf.push_str(&format!("track:{} ", self.track));
-        }
-        if !self.artist.is_empty() {
-            buf.push_str(&format!("artist:{} ", self.artist));
-        }
-        if !self.album.is_empty() {
-            buf.push_str(&format!("album:{} ", self.album));
-        }
-        buf
+fn search_query(track: &str, artist: &str, album: &str) -> String {
+    let mut buf = String::new();
+    if !track.is_empty() {
+        buf.push_str(&format!("track:{} ", track));
     }
+    if !artist.is_empty() {
+        buf.push_str(&format!("artist:{} ", artist));
+    }
+    if !album.is_empty() {
+        buf.push_str(&format!("album:{} ", album));
+    }
+    buf
 }
 
 #[derive(Debug, Deserialize)]
