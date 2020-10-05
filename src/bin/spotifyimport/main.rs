@@ -1,8 +1,10 @@
 use anyhow::{bail, Context, Error};
+use futures::future::join_all;
+use getopts::Options;
 use log::*;
 use logosaurus::{self, Logger, L_LEVEL, L_TIME};
 use reqwest::Client as HttpClient;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use spmc;
 use spotifyimport::access_token::{self, TokenResponse};
@@ -11,8 +13,10 @@ use std::fmt;
 use std::io;
 use std::io::BufReader;
 use std::process;
-use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::Mutex;
 use tokio;
+use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() {
@@ -33,17 +37,19 @@ const N_WORKERS: u32 = 16;
 
 fn print_help() {
     eprintln!(
-        "usage: {} [flags] <sp_dc> <sp_key>",
+        "usage: {} [--mutate] <sp_dc> <sp_key>",
         env::args().nth(0).unwrap()
     );
 }
 
+#[derive(Debug)]
 enum AddStatus {
-    Added,
-    Skipped,
+    Added(Song, String),   // song, id
+    Skipped(Song, String), // song, reason
 }
 
 async fn run() -> Result<(), Error> {
+    // parse arguments
     let sp_dc = match env::args().skip(1).nth(0) {
         Some(t) => t,
         None => {
@@ -51,7 +57,6 @@ async fn run() -> Result<(), Error> {
             process::exit(2);
         }
     };
-
     let sp_key = match env::args().skip(1).nth(1) {
         Some(t) => t,
         None => {
@@ -60,7 +65,23 @@ async fn run() -> Result<(), Error> {
         }
     };
 
-    let dry_run = true;
+    // parse flags
+    let mut opts = Options::new();
+    opts.optflag("", "mutate", "actually make changes (add songs)");
+    opts.optflag("h", "help", "print help information");
+    let matches = match opts.parse(&env::args().skip(1).collect::<Vec<String>>()) {
+        Ok(m) => m,
+        Err(f) => {
+            eprintln!("{}", f);
+            print_help();
+            process::exit(2);
+        }
+    };
+    if matches.opt_present("h") {
+        print_help();
+        process::exit(0);
+    }
+    let mutate = matches.opt_present("mutate");
 
     let http_client = HttpClient::new();
 
@@ -79,9 +100,10 @@ async fn run() -> Result<(), Error> {
     let (mut tx, rx) = spmc::channel::<Song>();
     let mut handles = Vec::new();
 
-    // found counts
-    let (added_tx, added_rx) = mpsc::channel::<AddStatus>();
-    let mut added = 0;
+    let (added_tx, mut added_rx) = mpsc::channel::<AddStatus>(1);
+
+    // track success counts
+    let added = Arc::new(Mutex::new(0));
     let total = s.total;
 
     // send work along channel
@@ -94,7 +116,7 @@ async fn run() -> Result<(), Error> {
     // consume work from channel
     for _ in 0..N_WORKERS {
         let rx = rx.clone();
-        let added_tx = added_tx.clone();
+        let mut added_tx = added_tx.clone();
         let http_client = http_client.clone();
         let token = access_token.clone();
 
@@ -103,20 +125,33 @@ async fn run() -> Result<(), Error> {
                 match rx.recv() {
                     Ok(song) => match search_spotify_track(&http_client, &token, &song).await {
                         Ok(id) => {
-                            if !dry_run {
+                            if mutate {
                                 if let Err(e) =
                                     add_spotify_liked_track(&http_client, &token, &id).await
                                 {
-                                    error!("add track: {}; skipped {}", e, song);
+                                    added_tx
+                                        .send(AddStatus::Skipped(
+                                            song,
+                                            format!("{}: {}", "add track", e),
+                                        ))
+                                        .await
+                                        .unwrap();
                                     continue;
                                 }
                             }
-                            added_tx.send(AddStatus::Added).unwrap();
-                            info!("added {} {}", song, id);
+                            added_tx
+                                .send(AddStatus::Added(song, String::from(id)))
+                                .await
+                                .unwrap();
                         }
                         Err(e) => {
-                            added_tx.send(AddStatus::Skipped).unwrap();
-                            error!("search track: {}; skipped {}", e, song);
+                            added_tx
+                                .send(AddStatus::Skipped(
+                                    song,
+                                    format!("{}: {}", "search track", e),
+                                ))
+                                .await
+                                .unwrap();
                         }
                     },
                     Err(_) => break,
@@ -127,21 +162,34 @@ async fn run() -> Result<(), Error> {
 
     drop(added_tx);
 
-    for handle in handles {
-        handle.await.unwrap();
-    }
-
-    loop {
-        match added_rx.recv() {
-            Ok(AddStatus::Added) => {
-                added += 1;
+    // collect added/failure info
+    let added_clone = Arc::clone(&added);
+    handles.push(tokio::spawn(async move {
+        loop {
+            match added_rx.recv().await {
+                Some(AddStatus::Added(song, id)) => {
+                    info!("added {} {}", song, id);
+                    let mut v = added_clone.lock().unwrap();
+                    *v += 1;
+                }
+                Some(AddStatus::Skipped(song, reason)) => {
+                    error!("{}; skipped {}", reason, song);
+                }
+                None => {
+                    break;
+                }
             }
-            Ok(_) => {}
-            Err(_) => break,
         }
-    }
+    }));
 
-    info!("total songs: {}, added: {}", total, added);
+    join_all(handles).await;
+
+    info!(
+        "total songs: {}, added: {}, failed songs written to: {}",
+        total,
+        added.lock().unwrap(),
+        "TODO"
+    );
     Ok(())
 }
 
@@ -213,10 +261,7 @@ fn search_query(track: &str, artist: &str, album: &str) -> String {
 
     let mut album = album;
     for suffix in ALBUM_TRIM_SUFFIXES {
-        album = match album.strip_suffix(suffix) {
-            Some(s) => s,
-            None => album,
-        };
+        album = album.strip_suffix(suffix).unwrap_or(album);
     }
     if !album.is_empty() {
         buf.push_str(&format!("album:{} ", album));
@@ -250,7 +295,7 @@ struct Scrobbled {
     songs: Vec<Song>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
 struct Song {
@@ -259,6 +304,7 @@ struct Song {
     title: String,
     year: u32,
     loved: bool,
+    ident: String,
 }
 
 impl fmt::Display for Song {

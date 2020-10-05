@@ -20,8 +20,10 @@ anyhow = "1.0"
 cookie = "0.14"
 serde = { version = "1.0", features = ["derive"] }
 reqwest = { version="0.10", features = ["json"] }
-tokio = { version="0.2", features = ["macros"] }
+tokio = { version="0.2", features = ["macros", "sync"] }
 log = "0.4"
 logosaurus = "0.3"
 serde_json = { version = "1.0" }
 spmc = "0.3"
+futures = { version = "0.3" }
+getopts = "0.2"
