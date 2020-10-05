@@ -130,6 +130,10 @@ async fn run() -> Result<(), Error> {
                     Ok(song) => match search_spotify_track(&http_client, &token, &song).await {
                         Ok(id) => {
                             if mutate {
+                                // TODO: Consider checking if song already
+                                // exists in Spotify. Adding an existing song
+                                // works, but updates the "date added" field,
+                                // which might be undesirable.
                                 if let Err(e) =
                                     add_spotify_liked_track(&http_client, &token, &id).await
                                 {
