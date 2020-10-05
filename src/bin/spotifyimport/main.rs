@@ -78,13 +78,13 @@ async fn search_spotify_track(c: HttpClient, song: &Song) -> Result<SpotifyUri, 
     const URL: &str = "https://api.spotify.com/v1/search";
     let q = search_query(&song.title, &song.artist_name, &song.album_title);
 
-    let req = c
+    let rsp = c
         .get(URL)
         .query(&[("q", &q[..]), ("type", "track"), ("limit", "1")])
-        .build()
-        .context("build request")?;
+        .send()
+        .await
+        .context("build and execute request")?;
 
-    let rsp = c.execute(req).await.context("execute request")?;
     if rsp.status() != 200 {
         bail!("bad status code: {}", rsp.status());
     }
