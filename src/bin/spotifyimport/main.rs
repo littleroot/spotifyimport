@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Error};
+use chrono;
 use futures::future::join_all;
 use getopts::Options;
 use log::*;
@@ -10,6 +11,7 @@ use spmc;
 use spotifyimport::access_token::{self, TokenResponse};
 use std::env;
 use std::fmt;
+use std::fs::File;
 use std::io;
 use std::io::BufReader;
 use std::process;
@@ -102,10 +104,6 @@ async fn run() -> Result<(), Error> {
 
     let (added_tx, mut added_rx) = mpsc::channel::<AddStatus>(1);
 
-    // track success counts
-    let added = Arc::new(Mutex::new(0));
-    let total = s.total;
-
     // send work along channel
     handles.push(tokio::spawn(async move {
         for song in songs {
@@ -163,7 +161,13 @@ async fn run() -> Result<(), Error> {
     drop(added_tx);
 
     // collect added/failure info
+    let added = Arc::new(Mutex::new(0));
+    let total = s.total;
+    let failed_songs: Arc<Mutex<Vec<Song>>> = Arc::new(Mutex::new(Vec::new()));
+
     let added_clone = Arc::clone(&added);
+    let failed_songs_clone = Arc::clone(&failed_songs);
+
     handles.push(tokio::spawn(async move {
         loop {
             match added_rx.recv().await {
@@ -173,6 +177,7 @@ async fn run() -> Result<(), Error> {
                     *v += 1;
                 }
                 Some(AddStatus::Skipped(song, reason)) => {
+                    failed_songs_clone.lock().unwrap().push(song.clone());
                     error!("{}; skipped {}", reason, song);
                 }
                 None => {
@@ -184,12 +189,19 @@ async fn run() -> Result<(), Error> {
 
     join_all(handles).await;
 
+    let failure_filename = format!("failures_{}.json", chrono::offset::Local::now().timestamp(),);
+
     info!(
-        "total songs: {}, added: {}, failed songs written to: {}",
+        "total songs: {}, added: {}, skipped songs written to: {}",
         total,
         added.lock().unwrap(),
-        "TODO"
+        failure_filename,
     );
+
+    let f = File::create(failure_filename).context("create output file")?;
+    let failed_vec = Arc::try_unwrap(failed_songs).unwrap().into_inner().unwrap();
+    serde_json::to_writer_pretty(f, &failed_vec).context("write failed songs")?;
+
     Ok(())
 }
 
@@ -295,7 +307,7 @@ struct Scrobbled {
     songs: Vec<Song>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
 struct Song {
