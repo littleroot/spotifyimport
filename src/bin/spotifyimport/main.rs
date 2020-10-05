@@ -199,18 +199,22 @@ async fn run() -> Result<(), Error> {
 
     join_all(handles).await;
 
-    let failure_filename = format!("failures_{}.json", chrono::offset::Local::now().timestamp(),);
+    if !failed_songs.lock().unwrap().is_empty() {
+        let failure_filename =
+            format!("failures_{}.json", chrono::offset::Local::now().timestamp(),);
 
-    info!(
-        "total songs: {}, added: {}, skipped songs written to: {}",
-        total,
-        added.lock().unwrap(),
-        failure_filename,
-    );
-
-    let f = File::create(failure_filename).context("create output file")?;
-    let failed_vec = Arc::try_unwrap(failed_songs).unwrap().into_inner().unwrap();
-    serde_json::to_writer_pretty(f, &failed_vec).context("write failed songs")?;
+        info!(
+            "total songs: {}, added: {}, skipped songs written to: {}",
+            total,
+            added.lock().unwrap(),
+            failure_filename,
+        );
+        let f = File::create(failure_filename).context("create output file")?;
+        let failed_vec = Arc::try_unwrap(failed_songs).unwrap().into_inner().unwrap();
+        serde_json::to_writer_pretty(f, &failed_vec).context("write failed songs")?;
+    } else {
+        info!("total songs: {}, added: {}", total, added.lock().unwrap(),);
+    }
 
     Ok(())
 }

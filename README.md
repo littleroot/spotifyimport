@@ -13,4 +13,7 @@ By default, the program runs in "dry run" mode (it doesn't actually add songs
 to Spotify, but just prints what it would do). Use the `--mutate` flag to
 actually add songs.
 
+The list of songs that fail to be added, if any, will be written to
+`failures_<timestamp>.json`.
+
 [api_doc]: https://scrobbl.es/doc/api/v1/scrobbled
