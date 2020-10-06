@@ -243,7 +243,8 @@ async fn add_spotify_liked_track(c: &HttpClient, token: &str, id: &str) -> Resul
     let rsp = c
         .put(url)
         .header("authorization", format!("Bearer {}", token))
-        .query(&["ids", id])
+        .header("content-length", "0")
+        .query(&[("ids", id)])
         .send()
         .await
         .context("build and execute request")?;
