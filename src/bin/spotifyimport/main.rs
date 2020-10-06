@@ -22,7 +22,7 @@ use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() {
-    let logger = Logger::builder()
+    let logger = Logger::builder(io::stderr())
         .set_prefix("spotifyimport: ")
         .set_flags(L_LEVEL | L_TIME)
         .set_level(LevelFilter::Info)

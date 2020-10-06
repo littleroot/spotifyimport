@@ -451,9 +451,9 @@ dependencies = [
 
 [[package]]
 name = "logosaurus"
-version = "0.3.4"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24f8f0f933a56c78f94848ddc880ad247bcf93bee3202f40ceea8d880852daaf"
+checksum = "1b81ba50a839320d7882d810ac849b9463b9732d59da4eaf9c967f778f6f50fa"
 dependencies = [
  "chrono",
  "log",
