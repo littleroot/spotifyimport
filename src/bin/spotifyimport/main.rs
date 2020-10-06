@@ -57,28 +57,18 @@ enum AddStatus {
 }
 
 async fn run() -> Result<(), Error> {
-    // parse arguments
-    let sp_dc = match env::args().skip(1).nth(0) {
-        Some(t) => t,
-        None => {
-            print_help();
-            process::exit(2);
-        }
-    };
-    let sp_key = match env::args().skip(1).nth(1) {
-        Some(t) => t,
-        None => {
-            print_help();
-            process::exit(2);
-        }
-    };
-
     // parse flags
     let mut opts = Options::new();
     opts.optflag("", "mutate", "actually make changes (add songs)");
     opts.optflag("h", "help", "print help information");
     let matches = match opts.parse(&env::args().skip(1).collect::<Vec<String>>()) {
-        Ok(m) => m,
+        Ok(m) => {
+            if m.free.len() != 2 {
+                print_help();
+                process::exit(2);
+            }
+            m
+        }
         Err(f) => {
             eprintln!("{}", f);
             print_help();
@@ -90,6 +80,10 @@ async fn run() -> Result<(), Error> {
         process::exit(0);
     }
     let mutate = matches.opt_present("mutate");
+
+    // parse arguments
+    let sp_dc = matches.free[0].clone();
+    let sp_key = matches.free[1].clone();
 
     let http_client = HttpClient::new();
 
