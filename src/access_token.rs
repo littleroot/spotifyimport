@@ -31,7 +31,7 @@ pub const SP_DC_INSTRUCTIONS: &str = r"1. open a new incognito window in a brows
 2. open Developer Tools in your browser and select the 'Application' tab
 3. login to Spotify
 4. search/filter for `sp_dc` under Cookies > https://open.spotify.com
-4. repeat step 4 for `sp_key`
+5. repeat step 4 for `sp_key`
 6. close the window without logging out";
 
 pub async fn fetch(c: &reqwest::Client, sp_dc: &str, sp_key: &str) -> Result<TokenResponse, Error> {
