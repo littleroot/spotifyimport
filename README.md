@@ -4,8 +4,8 @@
 your Apple Music library.
 
 Songs will added to "Liked Songs" in Spotify.  The program reads Apple Music
-library data from [scrobbl.es][api_doc] API response JSON, which should be fed
-into stdin.
+library data from [scrobble.growl.space][api_doc] API response JSON, which
+should be fed into stdin.
 
 Run with the `--help` flag to print help information.
 
@@ -16,4 +16,4 @@ actually add songs.
 The list of songs that fail to be added, if any, will be written to
 `failures_<timestamp>.json`.
 
-[api_doc]: https://scrobbl.es/doc/api/v1/scrobbled
+[api_doc]: https://scrobble.growl.space/doc/api/v1/scrobbled

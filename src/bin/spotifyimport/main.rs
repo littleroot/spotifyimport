@@ -41,7 +41,8 @@ fn print_help() {
     eprintln!(
         r"usage: {} [--mutate] <sp_dc> <sp_key>
 
-Standard input should be JSON from the https://scrobbl.es/api/v1/scrobbled API endpoint.
+Standard input should be JSON from the
+https://scrobble.growl.space/api/v1/scrobbled API endpoint.
 
 To obtain sp_dc and sp_key:
 {}",
